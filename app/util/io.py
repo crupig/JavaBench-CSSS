@@ -18,7 +18,8 @@ def read_code(
 def extract_code(code: str, *, rank=1):
     import re
 
-    matches = re.findall("```java\r?\n(.*?)```", code, re.DOTALL)
+    # matches = re.findall("```java\r?\n(.*?)```", code, re.DOTALL)
+    matches = re.findall(r"```(?:java)?\r?\n(.*?)```", code, re.DOTALL) # "java" is optional
     if rank <= len(matches):
         return matches[rank - 1]
     return ""
