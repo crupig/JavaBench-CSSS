@@ -177,9 +177,15 @@ Once your pull request is accepted, we will update the [Leaderboard](https://jav
 ## Citation
 
 ## Notes for replication of "Comparative Study of Selection Strategies"
-This repo was created as a support generation tool for the work **"How Should We Rank LLM Code Generations? A Comparative Study of  Selection Strategies"**. It was modified so that also the log probabilities of the generated tokens are extracted. Also the evaluation scripts were modified to extract the test execution feedbacks.
+This repo was created as a support generation tool for the work **"How Should We Rank LLM Code Generations? A Comparative Study of  Selection Strategies"**. 
 
-**To setup:**
+The original code generation framework has been modified in order to:
+* extract the log-probabilities when generating code solutions;
+* extracting test execution feedbacks when evaluting the generated solutions;
+* generate test cases instead of code solutions (for the CodeT approach);
+* run the generated test cases against the previously generated code solutions.
+
+### To setup:
 * clone the repo;
 * create virtual environment;
 * install `requirements.txt` (designed to work on Python `3.10.19`)
@@ -200,7 +206,7 @@ Example of command to run the scripts (input file as argument):
 
 ```bash run_eval.sh ./path_to_generation_file.jsonl```
 
-### Testcases generation:
+### Test cases generation (CodeT approach):
 
 **Replace scripts**:
 
@@ -213,5 +219,13 @@ For example:
 ```bash run_gen_tests.sh 0 Qwen/Qwen2.5-Coder-3B-Instruct```
 
 **To execute tests:**
+
+The models are in charge of generating test suites with multiple (up to 10) test cases (methods). Therefore, we have to postprocess the output of the models in order to isolate each tst method into a separate test file. This is done in `knowlbase_tests.py`.
+
+Afterwards, within each model (generator) and each coding problem (task id), we have to run each generated code solution against each generated test case.
+
+`merge_generations_and_tests_b4_test_exec.py` creates and saves all the `<code_solution, test_statement>` pairs.
+
+After generating all the pairs, the tests can be run with:
 
 ```bash run_eval_tests.sh ./path_to_generation_file.json```
