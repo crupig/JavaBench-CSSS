@@ -228,4 +228,4 @@ Afterwards, within each model (generator) and each coding problem (task id), we 
 
 After generating all the pairs, the tests can be run with:
 
-```bash run_eval_tests.sh ./path_to_generation_file.json```
+```bash run_eval_tests.sh ./path_to_generation_file.jsonl```
