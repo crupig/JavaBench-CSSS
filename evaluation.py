@@ -3,6 +3,10 @@ import json.tool
 import os
 import sys
 import click
+import re
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+import networkx as nx
 
 from app.test_env import TestEnv
 from app.util.io import extract_code, stream_jsonl
@@ -74,7 +78,7 @@ def evaluate_test_suite(
                 )
             )
         test_results[test["test_id"]] = result
-        test_env.destory()
+        test_env.destroy()
 
 
     if os.path.dirname(output):
@@ -90,21 +94,143 @@ def test_wise(data: str, output: str, test: str):
     evaluate_test_suite(data, output, test_file=test, mode="full")
 
 
+def rdm_string_generator(length):
+    import random
+    import string
+    letters = string.ascii_letters + string.digits
+    return ''.join(random.choice(letters) for i in range(length))
+
+
+def execution_errors_from_stdout(stdout: str):
+    """Example of the pattern 1 to match:
+    MapTest > givenSubsequentPipe_ifCanFillPipeFromCorrectDirection_thenSuccess() FAILED
+        org.opentest4j.AssertionFailedError at MapTest.java:87
+    
+    Example of the pattern 2 to match:
+    GameControllerTest > Make Move - Move to Adjacent Border, Unlimited Lives > pa1.controller.GameControllerTest.testMakeMoveToBorderUnlimitedLives(Direction)[1] FAILED
+        java.lang.NullPointerException at GameControllerTest.java:111
+    
+    Example of the pattern 3 to match:
+    GameBoardControllerTest > Make Move - Move to Wall FAILED
+        org.opentest4j.AssertionFailedError at GameBoardControllerTest.java:193
+    """
+    patterns_to_try = [
+        r"(\w+) > (\w+)\(\) FAILED\s+[\w\.]+ at (\w+\.java):\d+",
+        r"(\w+) > [\w\.\s\-\,]+ > ([\w\.]+)[\(\)\w\,\[\]\d]+ FAILED\s+[\w\.]+ at (\w+\.java):\d+",
+        r"(\w+) > ([\-\w\,\s]+) FAILED\s+[\w\.]+ at (\w+\.java):\d+"
+    ]
+    test_error_from_stdout = []
+    test_error_from_stdout_idx = []
+    test_class_counter = {}
+    for ipattern, pattern in enumerate(patterns_to_try):
+        matches = re.findall(pattern, stdout)
+        for match in matches:
+            test_class, test_method_name, test_file_name = match
+            if ipattern != len(patterns_to_try) - 1: # if not last pattern include method name
+                if '.' in test_method_name:
+                    test_method_name = test_method_name.split('.')[-1]
+                test_error_from_stdout.append((test_class, test_method_name, test_file_name))
+            else:
+                test_error_from_stdout.append((test_class, None, test_file_name))
+            test_class_counter.setdefault(test_class, 0)
+            test_error_from_stdout_idx.append(f"{test_class_counter[test_class]}{test_class}")
+            test_class_counter[test_class] += 1
+        
+        if len(test_error_from_stdout) > 0:
+            d = dict(zip(test_error_from_stdout_idx, test_error_from_stdout))
+            return d, f'pattern{ipattern + 1}'
+    return {}, '-'
+          
+def parse_execution_log(
+    execution_log: str,
+    test_method_name: str,
+    test_file_name: str,
+    root: str,
+    project_id: str,
+    file_name: str,
+    method_name: str,
+
+    error_line_number: list,
+    failed_test_expected_output: list,
+    failed_test_actual_output: list,
+    error_message: list,
+    error_type: list,
+    error_line_code: list,
+    exec_feedback: list,
+):
+    eln, fteo, ftao, em, et, elc, ef, rel_path_to_test_file = -1, "-", "-", "-", "-", "-", "-", "-"
+    # now that we have the error log, extract the line number and file name of the error
+    for line in execution_log.splitlines():
+        # look for a like containing the test method name and test file name
+        # e.g., ...
+        if test_method_name in line and test_file_name in line:
+            line = line.replace('lambda$', '')
+            pattern = r'\.java:(\d+)'
+            match = re.search(pattern, line)
+            if match:
+                eln = int(match.group(1))
+                et = execution_log.splitlines()[0].split(':')[0].strip()
+                em = execution_log.splitlines()[0].split(f"{et}:")[-1].strip()
+                
+                # check if the error message contains expected and actual output
+                if 'expected: ' in em and ' but was: ' in em:
+                    fteo = em.split('expected: ')[-1].split(' but was: ')[0].strip()
+                    ftao = em.split(' but was: ')[-1].strip()
+                elif 'expected: not <null>' in em:
+                    fteo = 'not <null>'
+                    ftao = 'null'
+            
+                rel_path_to_test_file = line.split('at app//')[-1].split(f'.{test_method_name}')[0] \
+                    if line.strip().startswith('at app//') else line.split('at ')[-1].split(f'.{test_method_name}')[0]
+                rel_path_to_test_file = rel_path_to_test_file.replace('.', '/') + '.java'
+                
+                # read the test file to get the code line that caused the error
+                try:
+                    with open(os.path.join(root, 'src', 'test', 'java', rel_path_to_test_file), 'r') as r:
+                        test_file = r.readlines()
+                    
+                    elc = test_file[eln - 1].strip()
+                    ef = f"Test Failed--\nFile: {rel_path_to_test_file}\nLine: {eln}\nMessage: {em}\nContent:\n{elc}\n"
+                except Exception as e:
+                    ef = f"Test Failed--\nFile: {rel_path_to_test_file}\nLine: {eln}\nMessage: {em}\nContent:\n{elc}\n"
+                    
+                
+                error_line_number.append(eln)
+                failed_test_expected_output.append(fteo)
+                failed_test_actual_output.append(ftao)
+                error_message.append(em)
+                error_type.append(et)
+                error_line_code.append(elc)
+                exec_feedback.append(ef)
+                
+                return
+
+def soup_parser_from_html_report(html_report_path, tag):
+    rel_path = tag['href'].split('#')[0]
+    test_method_name = tag['href'].split('#')[-1].strip("()")
+    html_log_path = '/'.join(html_report_path.split('/')[:-1] + [rel_path])
+    with open(html_log_path, 'r') as file:
+        html = file.read()
+    return BeautifulSoup(html, 'html.parser'), test_method_name
+
 def evaluate_single_class(
     sample_file: str,
     output: str,
 ):
     result = []
     samples = list(stream_jsonl(sample_file))
-    for sample_index, sample in enumerate(samples):
-        print(f"[{os.getpid()}/single-class] Running class {sample_index + 1}/{len(samples)}: {sample['task_id']}")
+    for sample in tqdm(samples):
         project_id = sample["task_id"].split("/")[0]
+        file_name = sample["target"].split("/")[-1].split(".java")[0]
+        method_name = sample["func_name"]
+        rdm_string = rdm_string_generator(16)
+        root = f"/tmp/pre-coder/{rdm_string}-single_class/{sample['task_id'].rsplit('.')[0]}"
         test_env = TestEnv(
-            root=f"/tmp/pre-coder/{os.getpid()}-single_class/{sample['task_id'].rsplit('.')[0]}",
+            root=root,
             todo_src=f"projects/{project_id}",
             src=f"projects/{project_id}-Solution",
         )
-        replace_result = test_env.replace(sample["target"], extract_code(sample["completion"]))
+        replace_result = test_env.replace_original(sample["target"], sample["completion"])
 
         # errors = test_env.compile()
         # result.append(
@@ -122,24 +248,126 @@ def evaluate_single_class(
         #     )
         # )
 
-        compile_result = len(test_env.compile())
+        # default values for the 7 error info fields
+        error_line_number = []
+        failed_test_input = []
+        failed_test_expected_output = []
+        failed_test_actual_output = []
+        error_message = []
+        error_type = []
+        error_line_code = []
+        exec_feedback = []
+        full_log = []
         test_result = None
-        if compile_result == 0:
-            test_result, out = test_env.run_test(None)
-            if not replace_result["has_todo"] and replace_result["can_replace"]:
-                print("==============================", file=sys.stderr)
-                print(f"Task {sample['task_id']}, index: {sample_index}", file=sys.stderr)
-                print(out, file=sys.stderr)
+
+        # if something in the generation went wrong, don't execute the tests
+        if sample["completion"] != "GENERATION_OR_EXTRACTION_FAILED":
+        
+            # run tests
+            compile_errors = test_env.compile()
+            compile_result = len(compile_errors)
+            
+            # in case of compilation errors
+            if compile_result > 0:
+                is_pass = False
+                for error in compile_errors:
+                    error_line_number.append(error.line)
+                    error_message.append(error.message)
+                    error_type.append("SyntaxError")
+                    error_line_code.append(error.content.split('\n')[0].strip())
+                    exec_feedback.append(f"Compilation error--\nFile: {error.source}\nLine: {error.line}\nMessage: {error.message}\nContent:\n{error.content}\n")
+                    
+            # if compilation is successful, run the tests
+            else:
+                test_result, stdout, stderr = test_env.run_test(None)
+                is_pass = test_result[0] == test_result[1] and test_result[1] > 0
+
+                # if not replace_result["has_todo"] and replace_result["can_replace"]:
+                if replace_result["can_replace"] and not is_pass:
+                    # print("==============================", file=sys.stderr)
+                    # print(f"Task {sample['task_id']}, index: {sample_index}", file=sys.stderr)
+                    
+                    # if the stderr is not empty, it means that some execution error happened
+                    for line in stderr.splitlines():
+                        # look for the html file containing the test report
+                        if "> There were failing tests. See the report at: file:///private" in line:
+                            html_report_path = line.split("file:///private")[-1].strip()
+                            with open(html_report_path, 'r') as r:
+                                report = r.read()
+
+                            execution_errors, patt = execution_errors_from_stdout(stdout)
+
+                            for idx, (test_class, test_method_name, test_file_name) in execution_errors.items():
+                                soup_report = BeautifulSoup(report, 'html.parser')
+                                if patt == 'pattern1':
+                                    tag = soup_report.find("a", string=lambda text: text and test_method_name in text)
+                                    soup, _ = soup_parser_from_html_report(html_report_path, tag) # open the file actually containing the error log
+                                    tag = soup.find("h3", string=lambda text: text and test_method_name in text)
+
+                                elif patt == 'pattern2':
+                                    tag = soup_report.find("a", string=test_class).find_next_sibling("a")
+                                    soup, _ = soup_parser_from_html_report(html_report_path, tag)
+                                    tag = soup.find("a", attrs={"name": lambda t: t and test_method_name in t})
+                                
+                                elif patt == 'pattern3':
+                                    tags = soup_report.find_all("a", string=test_class)
+                                    idx = int(idx[:-len(test_class)])
+                                    tag = tags[idx].find_next_sibling("a")
+                                    soup, test_method_name = soup_parser_from_html_report(html_report_path, tag)
+                                    tag = soup.find("a", attrs={"name": lambda t: t and test_method_name in t})
+                                    
+
+                                
+                                tag = tag.find_next_sibling("span", class_="code")
+                                execution_log = tag.text.strip()
+                                full_log.append(execution_log)
+                                parse_execution_log(
+                                                    execution_log,
+                                                    test_method_name,
+                                                    test_file_name,
+                                                    root,
+                                                    project_id,
+                                                    file_name,
+                                                    method_name,
+
+                                                    error_line_number,
+                                                    failed_test_expected_output,
+                                                    failed_test_actual_output,
+                                                    error_message,
+                                                    error_type,
+                                                    error_line_code,
+                                                    exec_feedback,
+                                                )
         result.append(
             dict(
-                task_id=sample["task_id"],
+                solution_idx=sample["solution_idx"],
+                task_idx=sample["task_idx"],
+                sample_idx=sample["sample_idx"],
+                generated_by=sample["generated_by"],
+                prompt=sample["prompt"],
+                method=sample["method"],
+                completion=sample["completion"],
+                raw_output=sample["raw_output"],
+                location=sample["target"],
+                is_pass=is_pass,
                 compile_errors=compile_result,
+                exec_feedback=str(exec_feedback),
+                error_line_number=str(error_line_number),
+                failed_test_input=str(failed_test_input),
+                failed_test_expected_output=str(failed_test_expected_output),
+                failed_test_actual_output=str(failed_test_actual_output),
+                error_message=str(error_message),
+                error_type=str(error_type),
+                error_line_code=str(error_line_code),
+
                 test_result=test_result or [0, 0],
-                has_todo=replace_result["has_todo"],
-                can_replace=replace_result["can_replace"],
+                full_log=str(full_log),
+                log_probabilities=sample["log_probabilities"],
+                # has_todo=replace_result["has_todo"],
+                # can_replace=replace_result["can_replace"],
             )
         )
-        test_env.destory()
+        test_env.destroy()
     if os.path.dirname(output):
         os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w") as fp:
@@ -199,7 +427,7 @@ def project_wise(data: str, output: str):
                 can_replace=can_replace,
             )
         )
-    test_env.destory()
+    test_env.destroy()
 
     if os.path.dirname(output):
         os.makedirs(os.path.dirname(output), exist_ok=True)

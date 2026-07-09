@@ -43,33 +43,19 @@ class TestEnv:
         self.src = src
         shutil.copytree(src, root)
 
-    def destory(self):
+    def destroy(self):
         shutil.rmtree(self.root)
-
+    
     def replace(self, target: str, content: str):
         code_path = to_code_path(self.root, target)
-        todo_code_path = to_code_path(self.todo_src, target)
         if not os.path.exists(code_path):
             print(f"warning: replace non-existed file {code_path}")
-        # with open(code_path, "w") as fp:
-        #     fp.write(content)
-
-        with open(todo_code_path, "r") as fp:
-            todo_content = fp.read()
-        todo_content_start = todo_content.find("public")
-        content_start = content.find("public")
-
-        if todo_content_start == -1 or content_start == -1:
-            return {
-                "has_todo": False,
-                "can_replace": False
-            }
 
         with open(code_path, "w") as fp:
-            fp.write(todo_content[:todo_content_start] + content[content_start:])
+            fp.write(content)
 
         return {
-            "has_todo": check_todo(todo_content, content),
+            "has_todo": False,
             "can_replace": True
         }
 
@@ -117,7 +103,7 @@ class TestEnv:
             r"Results: (\w+) \((\d+) tests, (\d+) successes, (\d+) failures, (\d+) skipped\)",
             out + err,
         )
-        return (int(match.group(3)), int(match.group(2))), out
+        return (int(match.group(3)), int(match.group(2))), out, err
     
     def run_dep_metrics(self):
         source_dir = "src/main/java"
