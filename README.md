@@ -210,7 +210,7 @@ Example of command to run the scripts (input file as argument):
 
 **Replace scripts**:
 
-Replace all the scripts in `scripts_to_replace_testcases`. Each file to be replace starts with the path where it has to be replaced.
+Replace all the scripts in `scripts_to_replace_testcases`. Each file to be replaced starts with the path where it has to be replaced.
 
 ```bash run_gen_tests.sh <DEVICE_ID> <MODEL_PATH>```
 
