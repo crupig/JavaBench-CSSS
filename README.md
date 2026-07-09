@@ -193,3 +193,9 @@ Note that a new mode was defined with respect to the original benchmark: `indepe
 For example:
 
 ```bash run_gen.sh 0 Qwen/Qwen2.5-Coder-3B-Instruct```
+
+**Evaluation:**
+
+Example of command to run the scripts (input file as argument):
+
+```bash run_eval.sh ./path_to_generation_file.jsonl```
