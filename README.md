@@ -211,3 +211,7 @@ Replace all the scripts in `scripts_to_replace_testcases`. Each file to be repla
 For example:
 
 ```bash run_gen_tests.sh 0 Qwen/Qwen2.5-Coder-3B-Instruct```
+
+**To execute tests:**
+
+```bash run_eval_tests.sh ./path_to_generation_file.json```
