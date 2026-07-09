@@ -1,0 +1,35 @@
+{
+    "PA19/PipeQueue:peek:0" : "src.test.java.game.PipeQueueTest",
+    "PA19/PipeQueue:PipeQueue:1" : "src.test.java.game.PipeQueueTest",
+    "PA19/Pipe:getFilled:0" : "src.test.java.game.pipes.PipeTest",
+    "PA19/Pipe:Pipe:0" : "src.test.java.game.pipes.PipeTest",
+    "PA19/Map:Map:0" : "src.test.java.game.map.MapTest",
+    "PA19/Game:getNumOfSteps:0" : "src.test.java.game.GameTest",
+    
+    "PA20/Archer:getAvailableMoves:0" : "src.test.java.assignment.protocol.ArcherTests",
+    
+    "PA21/MoveStack:isEmpty:0" : "src.test.java.pa1.model.MoveStackTest",
+    "PA21/GameBoard:getNumRows:0" : "src.test.java.pa1.model.GameBoardTest",
+    "PA21/GameBoard:getCell:1" : "src.test.java.pa1.model.GameBoardTest",
+    "PA21/GameState:decreaseNumLives:0" : "src.test.java.pa1.model.GameStateTest",
+    "PA21/GameState:getNumLives:0" : "src.test.java.pa1.model.GameStateTest",
+    "PA21/GameState:getMoveStack:0" : "src.test.java.pa1.model.GameStateTest",
+    "PA21/StopCell:StopCell:0" : "src.test.java.pa1.model.StopCellTest",
+    "PA21/StopCell:StopCell:1" : "src.test.java.pa1.model.StopCellTest",
+    "PA21/ExtraLife:ExtraLife:0" : "src.test.java.pa1.model.ExtraLifeTest",
+    "PA21/Mine:Mine:1" : "src.test.java.pa1.model.MineTest",
+    "PA21/Position:offsetByOrNull:1" : "src.test.java.pa1.model.PositionTest",
+    "PA21/Position:offsetBy:0" : "src.test.java.pa1.model.PositionTest",
+    "PA21/EntityCell:EntityCell:1" : "src.test.java.pa1.model.EntityCellTest",
+    "PA21/GameController:processMove:0" : "src.test.java.pa1.controller.GameControllerTest",
+    "PA21/GameBoardController:makeMove:0" : "src.test.java.pa1.controller.GameBoardControllerTest",
+    
+    "PA22/GameMap:getEntity:0" : "src.test.java.assignment.game.GameMapTest",
+    "PA22/GameMap:parse:0" : "src.test.java.assignment.game.GameMapTest",
+    "PA22/GameMap:getDestinations:0" : "src.test.java.assignment.game.GameMapTest",
+    "PA22/Move:nextPosition:1" : "src.test.java.assignment.actions.MoveTest",
+    "PA22/Move:nextPosition:2" : "src.test.java.assignment.actions.MoveTest",
+    "PA22/GameState:getMapMaxHeight:0" : "src.test.java.assignment.game.GameStateTest",
+    "PA22/GameState:move:0" : "src.test.java.assignment.game.GameStateTest"
+    
+}
