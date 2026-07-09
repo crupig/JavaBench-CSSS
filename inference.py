@@ -123,7 +123,7 @@ Remember to tailor the activities to the birthday child's interests and preferen
 
     ids_to_keep = None
     if args.all_ids_dict != "all":
-        ids_to_keep = ast.literal_eval(args.all_ids_dict)["JavaBench"][args.split]    
+        ids_to_keep = ast.literal_eval(args.all_ids_dict)["JavaBench"][args.split]
 
     for task, sample_idx in tqdm(itertools.islice(itertools.product(tasks, range(args.num_sample)), len(samples), None), total=len(tasks) * args.num_sample, initial=len(samples)):
         
@@ -183,12 +183,12 @@ Remember to tailor the activities to the birthday child's interests and preferen
             progress = tqdm(todo_methods)
             for todo_method in progress:
 
+                task_idx = f"{task['task_id'].split('.java')[0]}:{todo_method['name']}:{todo_method['seq']}"
                 ##########
-                if f"{task['task_id'].split('.java')[0]}:{todo_method['name']}:{todo_method['seq']}" not in ids_to_keep and ids_to_keep is not None:
+                if task_idx not in ids_to_keep and ids_to_keep is not None:
                     continue
                 ##########
 
-                task_idx = f"{task['task_id'].split('.java')[0]}:{todo_method['name']}:{todo_method['seq']}"
                 solution_idx = "Java--JavaBench--TaskID::{0}--GeneratedBy::{1}--SampleID::{2:02d}".\
                                     format(task_idx, args.model_path.split("/")[-1], sample_idx)
                 progress.set_description(f"{todo_method['name']} {todo_method['seq']}")
