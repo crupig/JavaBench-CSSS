@@ -230,7 +230,7 @@ def evaluate_single_class(
             todo_src=f"projects/{project_id}",
             src=f"projects/{project_id}-Solution",
         )
-        replace_result = test_env.replace_original(sample["target"], sample["completion"])
+        replace_result = test_env.replace(sample["target"], sample["completion"])
 
         # errors = test_env.compile()
         # result.append(
