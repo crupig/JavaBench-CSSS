@@ -288,7 +288,7 @@ if __name__ == "__main__":
         print(f"Number of task IDs with no asserts (out of {num_task_ids}):\t\t{num_task_ids - g[g['generated_by'] == generated_by]['task_idx'].nunique()}")
         print()
     
-        save_dir = "../knowlbase-tests"
+        save_dir = "../data/knowlbase-tests"
         authorized = input(f"Do you want to save the tests extracted for {generated_by} to '{save_dir}'? (y/n): ")
         if authorized.lower() in ['y', 'yes']:
             save_path = os.path.join(save_dir, f"{generated_by}_knowlbase_tests_javabench.jsonl")

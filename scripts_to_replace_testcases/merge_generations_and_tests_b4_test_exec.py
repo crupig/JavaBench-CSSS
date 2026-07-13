@@ -17,7 +17,7 @@ if __name__ == "__main__":
     tqdm.pandas()
     
     # IMPORT CODE KNOWLEDGE BASE
-    kb_dir = "../../JavaBench/knowlbase"
+    kb_dir = "../data/knowlbase/JavaBench"
     kb = pd.DataFrame()
     for file in os.listdir(kb_dir):
         if re.search(r'knowlbase_javabench_part\d+\.json', file):
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     kb['onwhichtomerge'] = kb['solution_idx'].apply(lambda x: x.split("--SampleID")[0])
 
     # FILTER KNOWLEDGE BASE TO TEST SET SOLUTIONS
-    with open("../data/finetuning/test_upto20_real.jsonl", "r") as f:
+    with open("../data/testset/test.jsonl", "r") as f:
         test_set_uptp20 = [json.loads(line) for line in f]
     test_set_uptp20 = pd.DataFrame(test_set_uptp20)
     solution_ids_to_keep = test_set_uptp20.solution_idx.unique().tolist()
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     for generated_by in kb['generated_by'].unique():
 
         # IMPORT TESTS KNOWLEDGE BASE
-        test_path = f"../knowlbase-tests/{generated_by}_knowlbase_tests_javabench.jsonl"
+        test_path = f"../data/knowlbase-tests/{generated_by}_knowlbase_tests_javabench.jsonl"
         if not os.path.exists(test_path):
             print(f"Test knowledge base file '{test_path}' not found. Skipping '{generated_by}'.")
             continue
